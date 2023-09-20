@@ -83,3 +83,43 @@ func (app *application) exampleHandler(w http.ResponseWriter, r *http.Request) {
     }
     ```
     - Go will first call that method to decode the data
+
+# Database Connection Pool
+
+- There are two types of connections:
+    1. In-use connections: Connections actively used to execute SQL queries or DB operations
+    2. Idle connections: Connections avaliable for use
+
+- If there are no connections avaliable, Go will spawn a new connection
+- If a connection is bad, Go will re-try the connection *twice* before removing the connection and creating a new one
+
+### Configuring the Connection Pool
+
+- The connection pool has 4 methods to customize its behavior:
+
+1. `SetMaxOpenConns()` method
+    - Sets a limit on how many "open" (in-use + idle) connections are avaliable in the pool
+    - PostgreSQL sets a default limit of 100 connections
+        - Can be overridden by the `max_connections` setting in the `postgres.conf` file
+        - To avoid an error, the limit in our application should be comfortably below PostgreSQL's default/custom limit
+    - Setting a limit comes with a caveat, if all connections are used up, new DB operations are left to hang (potentially indefinite) while waiting for a new connection to be free'd up
+        - Mitigate this by always setting a timeout on database tasks using a `context.Context` object
+
+2. `SetMaxIdleConns()` method
+    - Sets a limit on the number of "idle" connections in the pool
+        - Default max idle connections is 2
+    - `MaxIdleCons` should always be less than or equal to `MaxOpenConns`, Go automatically enforces this
+    - Keeping too many idle connections open can consume too much memory
+
+3. `SetConnMaxLifetime()` method
+    - Sets the maximum length of time that a connection can be reused for
+    - Not an idle timeout!
+
+4. `SetConnMaxIdleTimeout()` method
+    - Sets the maximum amount of time a connection can idle before its marked as expired
+        - By default, this has no limit
+    - Can be used in combination with `SetMaxIdleCons()` to set a high number of idle connections and perform a cleanup operation if any connection hasn't been used in a while
+
+
+    
+
