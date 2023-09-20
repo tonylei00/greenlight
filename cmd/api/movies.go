@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"greenlight.tlei.net/internal/data"
+	"greenlight.tlei.net/internal/validator"
 )
 
 // POST /v1/movies
@@ -20,6 +21,20 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 	err := app.readJSON(w, r, &input)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	movie := &data.Movie{
+		Title:   input.Title,
+		Year:    input.Year,
+		Runtime: input.Runtime,
+		Genres:  input.Genres,
+	}
+
+	v := validator.New()
+
+	if data.ValidateMovie(v, movie); !v.IsValid() {
+		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
