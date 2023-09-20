@@ -15,7 +15,7 @@ func (app *application) logError(r *http.Request, err error) {
 	app.logger.Error(err.Error(), "method", method, "uri", uri)
 }
 
-// Forms a JSON object with the included error message and writes it to the response
+// Forms a enveloped JSON object with the included error message and writes it to the response
 func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any) {
 	data := envelope{"error": message}
 
@@ -31,6 +31,10 @@ func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Reque
 
 	message := "the server encountered a problem and could not process your request"
 	app.errorResponse(w, r, http.StatusInternalServerError, message)
+}
+
+func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
 
 func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request) {
