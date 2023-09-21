@@ -15,7 +15,6 @@ import (
 
 const version = "1.0.0"
 
-// Server configuration
 type config struct {
 	port int
 	env  string
@@ -27,7 +26,6 @@ type config struct {
 	}
 }
 
-// Dependencies for HTTP handlers, helpers, and middleware
 type application struct {
 	config config
 	logger *slog.Logger
@@ -93,7 +91,6 @@ func openDB(cfg config) (*sql.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Errors out if a test connection cannot be established within 5 seconds
 	err = db.PingContext(ctx)
 	if err != nil {
 		return nil, err

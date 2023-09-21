@@ -120,6 +120,69 @@ func (app *application) exampleHandler(w http.ResponseWriter, r *http.Request) {
         - By default, this has no limit
     - Can be used in combination with `SetMaxIdleCons()` to set a high number of idle connections and perform a cleanup operation if any connection hasn't been used in a while
 
+# Using `golang-migrate` module
 
-    
+```
+# Linux installation
+$ cd /tmp
+$ curl -L https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz
+$ mv migrate ~/go/bin/
+$ migrate --version
+```
+- Use the `migrate create` command to generate a pair of *migration files*
+```
+$ migrate create -seq -ext=.sql -dir=./migrations create_movies_table
+/home/tlei_dev/greenlight/migrations/000001_create_movies_table.up.sql
+/home/tlei_dev/greenlight/migrations/000001_create_movies_table.down.sql
+```
+- `-seq` flag instructs migrate to use sequential numbering (00001, 00002, ..etc) for the migration files instead of a Unix timestamp
+- `-ext` flag allows us to specify the file extension of our migration files
+- `-dir` flag specifies the directory we want our migration files to be created
+    - if directory doesn't already exists, it will be created for us
+- `create_movies_table` is a descriptive label we give to the migration files signifying their contents
+
+- Executing SQL migrations
+```
+$ migrate -path=./migrations -database=$GREENLIGHT_DB_DSN up
+1/u create_movies_table (38.19761ms)
+2/u add_movies_check_constraints (63.284269ms)
+```
+
+### Rolling-back database version
+
+- To see which migration version your database is currently on using `golang-migrate` tool's `version` command:
+```
+$ migrate -path=./migrations -database=$EXAMPLE_DSN version
+```
+
+- To migrate up or down to a specific version use `goto` command:
+```
+$ migrate -path=./migrations -database=$EXAMPLE_DSN goto {version}
+```
+
+- To roll-back *all* migrations, use the `down` command:
+```
+$ migrate -path=./migrations -database=$EXAMPLE_DSN down
+Are you sure you want to apply all down migrations? [y/N]
+y
+Applying all down migrations
+2/d create_bar_table (39.988791ms)
+1/d create_foo_table (59.460276ms)
+```
+
+### Fixing errors in SQL migrations
+
+- When a migration which contains an error is ran, all SQL statements up to the erroneous one will be applied and then the migrate tool will exit with a message describing the error
+    - So if a migration file contains *multiple* SQL statements, its possible the migration file was *partially* applied
+    - This will leave the database in an *unknown* state
+    - Further signified by the database version displaying a *dirty* field
+
+- Fix:
+    1. Investigate the original error and figure out if the migration file was partially applied
+    2. Manually roll-back the partially applied migration
+    3. Force the `version` number in the `schema_migrations` table to the correct value using the `force` command:
+        ```
+        $ migrate -path=./migrations -database=$EXAMPLE_DSN force 1
+        ```
+    4. Once `force` is applied, the database will be considered "clean" and migrations should be able to run again
 

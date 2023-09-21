@@ -85,7 +85,8 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 		}
 	}
 
-	// Limit request body to one JSON value/object
+	// Check if request body contains more than one JSON value by seeing if decode.Decode can be called successfully
+	// with a pointer to an anonymous empty struct
 	err = decoder.Decode(&struct{}{})
 	if !errors.Is(err, io.EOF) {
 		return errors.New("body must only contain a single JSON value")
