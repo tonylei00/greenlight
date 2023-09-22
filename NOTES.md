@@ -207,4 +207,32 @@ Applying all down migrations
 
 ### Read/Fetch
 
+- Similar to Create/Insert method, when reading the PSQL column type `[]text`, the `pq.Array()` method is required to translate the array to a slice which Go can recognize
 
+- Q: Why not use an unsigned integer to type the `ID` field when we know it will never be a negative number?
+    - PostgreSQL does *NOT* have an unsigned integer type, it is best to align Go and database integer types as closely as possible
+    - Go's `database/sql` package doesn't actually support integer values greater than 9223372036854775807 (max value for an integer of type `int64`) 
+        - Its possible for a `uint64` value to be greater than this, which would lead to Go generating a runtime error
+
+
+### Update
+
+For our app's `updateMovieHandler`, we'll specifically:
+1. Extract the movie ID from the URL using the app.readIDParam() helper.
+2. Fetch the corresponding movie record from the database using the Get() method that we made in the previous chapter.
+3. Read the JSON request body containing the updated movie data into an input struct.
+4. Copy the data across from the input struct to the movie record.
+5. Check that the updated movie record is valid using the data.ValidateMovie() function.
+6. Call the Update() method to store the updated movie record in our database.
+7. Write the updated movie data in a JSON response using the app.writeJSON() helper.
+
+### Delete
+
+- Use the `db.Exec()` query method if our SQL statement does not return any rows
+    - It also conveniently returns a `sql.Result` object that contains the `RowsAffected()` method
+    - We can use this method to check if 0 rows have been affected and return a error not found in response to that
+
+- Depending on if a human or a machine makes a request to our endpoint
+    - Respond with a `200` status if its a human for UX 
+    - Response with a `204 No Content` status if a machine is hitting the endpoint
+ 

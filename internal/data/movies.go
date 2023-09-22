@@ -26,9 +26,9 @@ type Movie struct {
 
 func (m MovieModel) Insert(movie *Movie) error {
 	query := `
-			INSERT INTO movies (title, year, runtime, genres)
-			VALUES ($1, $2, $3, $4)
-			RETURNING id, created_at, version`
+		INSERT INTO movies (title, year, runtime, genres)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at, version`
 
 	values := []any{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
 
@@ -37,9 +37,9 @@ func (m MovieModel) Insert(movie *Movie) error {
 
 func (m MovieModel) Get(id int64) (*Movie, error) {
 	query := `
-			SELECT id, created_at, title, year, runtime, genres, version 
-			FROM movies
-			WHERE id= $1`
+		SELECT id, created_at, title, year, runtime, genres, version 
+		FROM movies
+		WHERE id= $1`
 
 	var movie Movie
 
@@ -63,6 +63,46 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 	}
 
 	return &movie, nil
+}
+
+func (m MovieModel) Update(movie *Movie) error {
+	query := `
+		UPDATE movies
+		SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
+		WHERE id = $5
+		RETURNING version`
+
+	args := []any{
+		movie.Title,
+		movie.Year,
+		movie.Runtime,
+		pq.Array(movie.Genres),
+		movie.ID,
+	}
+
+	return m.DB.QueryRow(query, args...).Scan(&movie.Version)
+}
+
+func (m MovieModel) Delete(id int64) error {
+	query := `
+		DELETE FROM movies
+		WHERE id = $1`
+
+	result, err := m.DB.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
 }
 
 func ValidateMovie(v *validator.Validator, movie *Movie) {
