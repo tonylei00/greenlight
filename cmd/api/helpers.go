@@ -27,8 +27,10 @@ func (app *application) writeJSON(
 
 	js = append(js, '\n')
 
-	for k, v := range headers {
-		w.Header()[k] = v
+	if len(headers) > 0 {
+		for k, v := range headers {
+			w.Header()[k] = v
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -141,7 +141,8 @@ $ migrate create -seq -ext=.sql -dir=./migrations create_movies_table
     - if directory doesn't already exists, it will be created for us
 - `create_movies_table` is a descriptive label we give to the migration files signifying their contents
 
-- Executing SQL migrations
+### Executing SQL migrations
+
 ```
 $ migrate -path=./migrations -database=$GREENLIGHT_DB_DSN up
 1/u create_movies_table (38.19761ms)
@@ -185,4 +186,25 @@ Applying all down migrations
         $ migrate -path=./migrations -database=$EXAMPLE_DSN force 1
         ```
     4. Once `force` is applied, the database will be considered "clean" and migrations should be able to run again
+
+# PostgreSQL JSON CRUD Operations
+
+### Create/Insert
+
+- PostgreSQL specific `RETURNING` clause returns values from any record being manipulated by an `INSERT`, `UPDATE`, OR `DELETE` statement
+    - If we use this clause and are expecting the query to return exactly *one* row, we must execute the query using the `sql.DB`'s `QueryRow()` method
+
+- Placeholder parameter inputs are denoted by `$N` 
+
+- To store Go arrays/slices, we need to pass the array into the `pq.Array()` adapter
+    - `pq.Array()` adapter converts the `[]string` slice to a `pq.StringArray` type
+        - `pq.StringArray` type implements the [`driver.Valuer`](https://pkg.go.dev/database/sql/driver#Valuer) and [`sql.Scanner`](https://pkg.go.dev/database/sql#Scanner) interfaces which are necessary to translate the type so our PostgreSQL database can understand it
+    - Same goes for `[]bool`, `[]int]`, `[]float64`...
+
+- In our handler, set a `Location` header directing the requesting user where to find our newly created resource
+    - Also in the event of our resource being created successfully the appropriate status code to use is `201 (StatusCreated)`
+
+
+### Read/Fetch
+
 
