@@ -1,3 +1,23 @@
+# Contents
+1. [JSON](#json)
+    - [Sending JSON Responses](#sending-json-responses)
+    - [Parsing JSON Requests](#parsing-json-requests)
+2. [Database Connection Pool](#database-connection-pool)
+    - [Configuring the Connection Pool](#configuring-the-connection-pool)
+3. [golang-migrate](#using-golang-migrate-module)
+    - [Executing SQL Migrations](#executing-sql-migrations)
+    - [Rolling-back DB Versions](#rolling-back-database-version)
+    - [Fixing Errors in SQL Migrations](#fixing-errors-in-sql-migrations)
+4. [PostgreSQL CRUD](#postgresql-json-crud-operations)
+    - [Create/Insert](#createinsert)
+    - [Read/Fetch](#readfetch)
+    - [Put/Patch](#updatepatch)
+    - [Delete](#delete)
+5. [Concurrency Control](#concurrency-control)
+    - [Optimistic Locking](#optimistic-locking)
+    - [Pessimistic Locking](#pessmistic-locking)
+    - [Round-Trip Locking](#round-trip-locking)
+
 # JSON
 
 ### Sending JSON Responses
@@ -83,6 +103,8 @@ func (app *application) exampleHandler(w http.ResponseWriter, r *http.Request) {
     }
     ```
     - Go will first call that method to decode the data
+
+#### JSON items with `null` values will be ignored and will remain unchanged
 
 # Database Connection Pool
 
@@ -215,7 +237,7 @@ Applying all down migrations
         - Its possible for a `uint64` value to be greater than this, which would lead to Go generating a runtime error
 
 
-### Update
+### Update/Patch
 
 For our app's `updateMovieHandler`, we'll specifically:
 1. Extract the movie ID from the URL using the app.readIDParam() helper.
@@ -225,6 +247,13 @@ For our app's `updateMovieHandler`, we'll specifically:
 5. Check that the updated movie record is valid using the data.ValidateMovie() function.
 6. Call the Update() method to store the updated movie record in our database.
 7. Write the updated movie data in a JSON response using the app.writeJSON() helper.
+
+#### Handling Partial Updates aka Patch
+
+- When decoding the request body, any fields in our input which *don't* have corresponding JSON key-value pairs will retain their *zero* value
+- This causes a problem as we cannot tell the difference between a key/value pair that needs to be updated with their zero value versus a key/value pair that was omitted
+- We take advantage of the fact that the zero value for pointers is `nil`
+- By making all the fields in our input struct pointer types, we are able to check for the case that the input field is omitted
 
 ### Delete
 
@@ -236,3 +265,32 @@ For our app's `updateMovieHandler`, we'll specifically:
     - Respond with a `200` status if its a human for UX 
     - Response with a `204 No Content` status if a machine is hitting the endpoint
  
+# Concurrency Control
+
+- Concurrency control are methods which prevent data races
+- A data race is when two user requests to update the same resource at the exact same time, which in turn, forces the server to race the two requests
+
+### Optimistic Locking
+
+- Assumes nothing is going to change while reading a record, many collisions are not expected
+- Implementation: Make a check which makes sure the database row hasn't changed before writing the record
+    - The check can be in the form of an auto-incremented `version` column
+    - A UUID should be used if its important that the identifier cannot be guessed
+
+### Pessmistic Locking
+
+- Assumes something will change as a record is being read and locks the record, a collision is expected and anticipated
+
+### Round-trip Locking
+
+- An extension to optimisic locking where the *client* can pass the version number *they* expect in an `X-Expected-Version` header 
+- This can be useful to help ensure the client is not sending their update based on outdated information
+```
+// Rough implementation
+if r.Header.Get("X-Expected-Version") != "" {
+    if strconv.FormatInt(int64(movie.Version), 32) != r.Header.Get("X-Expected-Version") {
+        app.editConflictResponse(w, r)
+        return
+    }
+}
+```
