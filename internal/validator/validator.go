@@ -18,7 +18,7 @@ func New() *Validator {
 	return &Validator{Errors: make(map[string]string)}
 }
 
-func (v *Validator) IsValid() bool {
+func (v *Validator) Valid() bool {
 	return len(v.Errors) == 0
 }
 

@@ -33,7 +33,7 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 
 	v := validator.New()
 
-	if data.ValidateMovie(v, movie); !v.IsValid() {
+	if data.ValidateMovie(v, movie); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
@@ -128,7 +128,7 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 
 	v := validator.New()
 
-	if data.ValidateMovie(v, movie); !v.IsValid() {
+	if data.ValidateMovie(v, movie); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
