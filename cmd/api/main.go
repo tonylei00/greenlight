@@ -59,8 +59,6 @@ func main() {
 
 	logger.Info("database connection pool established")
 
-	fmt.Println("database max open connections:", cfg.db.maxOpenConns)
-
 	app := &application{
 		config: cfg,
 		logger: logger,

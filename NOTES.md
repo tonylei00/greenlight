@@ -17,6 +17,15 @@
     - [Optimistic Locking](#optimistic-locking)
     - [Pessimistic Locking](#pessmistic-locking)
     - [Round-Trip Locking](#round-trip-locking)
+6. [Listing Records](#listing-records)
+    - [Parsing Query String Params](#parsing-query-string-parameters)
+    - [Validating Query String Params](#validating-query-string-parameters)
+    - [Listing Data](#listing-data)
+    - [Filtering Lists](#filtering-lists)
+    - [Full-Text Search](#full-text-search)
+    - [Sorting Lists](#sorting-lists)
+    - [Paginating Lists](#paginating-lists)
+    - [Returning Pagination Metadata](#returning-pagination-metadata)
 
 # JSON
 
@@ -295,3 +304,50 @@ if r.Header.Get("X-Expected-Version") != "" {
 }
 ```
 
+# Listing Records
+
+### Parsing Query String Parameters
+
+1. Created helper methods to parse query string paramters to their desired types
+    - Note: Query string parameters are of type `url.Values` from the `net/url` package
+    - Helper methods can potentially accept a `validator` as an argument and add errors to the validator map as needed
+2. In the handler, we created an `Input` struct which holds all our expected query string *keys*
+3. Grab the `url.Values` map with the `r.URL.Query()` method
+4. We parse all the query strings into the `Input` struct
+
+### Validating Query String Parameters
+
+1. Created a struct which holds our filter query string values in a separate file
+2. Added a `ValidateFilters(v *validator.Validator, f Filters)` method which validates our filter query strings
+    - Utilized the `v.Check()` method to perform the checks as well as add errors to the errors map
+3. Embedded the filters struct in our `listMovieHandlers` input struct
+4. Added the query string values to the filters struct and validated the values
+
+### Listing Data
+
+1. Created a `GetAll()` method to serve as the model for our `listMovieHandlers` handler
+2. In `GetAll()`, we use the `db.QueryContext()` method to query *multiple* rows
+    - Be sure to defer a call to `rows.Close()` to close the result set before exiting the fn
+3. Initalize an empty slice of *Movies
+4. Iterate over`rows.Next()` and scan each movie into a struct and finally append the struct to the *Movies slice
+    - When scanning slices/arrays, don't forget to use the `pq.Array()` adapter
+5. After the `rows.Next()` loop has finished, call `rows.Err()` to collect any errors that occurred during iteration
+```
+    if rows.Err() != nil {}
+```
+6. If all goes well, return the slice of Movies to the handler
+
+### Filtering Lists
+
+
+
+### Full-Text Search
+
+
+### Sorting Lists
+
+
+### Paginating Lists
+
+
+### Returning Pagination Metadata
