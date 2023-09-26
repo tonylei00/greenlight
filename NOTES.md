@@ -339,12 +339,57 @@ if r.Header.Get("X-Expected-Version") != "" {
 
 ### Filtering Lists
 
+As opposed to dynamically generating a SQL query at runtime by concatenating the filter clauses, we opt to use conditional clauses where we can control whats being filtered by forcing the clause to return true.
 
+```
+SELECT id, created_at, title, year, runtime, genres, version
+FROM movies
+WHERE (LOWER(title) = LOWER($1) OR $1 = '') 
+AND (genres @> $2 OR $2 = '{}') 
+ORDER BY id
+```
+
+`(LOWER(title) = LOWER($1) OR $1 = '')`
+- Returns rows where the column title matches the parameter OR skips the filter entirely if the parameter equals an empty string
+
+`(genres @> $2 OR $2 = '{}')`
+- @> symbol denotes "contains"
+- Return rows where the genres column contains one or more values from the parameter or skip the filter entirely if the paramter is an empty array
+
+- [PostgreSQL Array Operators](https://www.postgresql.org/docs/9.6/functions-array.html)
 
 ### Full-Text Search
 
+PostgreSQL provides powerful full-text search capabilities through the use of configurable *lexemes*
+
+```
+# Consider this WHERE clause
+WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '') 
+```
+
+- The `to_tsvector('simple', title)` function takes in a text column and splits it into lexemes
+    - We specify the *simple* configuration which means that the lexemes are just lowercase versions of the words in the title
+    - Title: "The Breakfast Club" | Lexemes: "the" "breakfast" "club"
+    - There are vast configuration options, such as the removal of common words or applying language-specific stemming
+- The `plainto_tsquery('simple', $1)` function takes in a search term and normalizes it into a formatted *query term*
+    - It strips any special characters and inserts the `&` operator between the words
+    - Search Term: "The Club" | Query term: "the" & "club" - Matches rows which contain both lexemes "the" and "club"
+- The `@@` operator is the *matches* operator
+    - We use it in the query to check whether our *query term matches the lexeme* 
+
+Adding DB Indexes
+
+- Database indexes allow our SQL queries to perform quickly as our dataset grows
+- Indexes helps us avoid full table scans and avoid re-generating lexemes for our columns every time a query is ran
+- For a full-text search, it makes sense to utilize PostgreSQL's `GIN` index type
+    - `GIN` indexes efficiently handle full-text search involving arrays and other advanced queries
+
+- Few other notable text-search methods include the `STRPOS()` function and `ILIKE` operator
+    - STRPOS() is a sub-string search
+    - ILIKE matches case-insensitive patterns
 
 ### Sorting Lists
+
 
 
 ### Paginating Lists
