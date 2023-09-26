@@ -24,9 +24,8 @@
     - [Filtering Lists](#filtering-lists)
     - [Full-Text Search](#full-text-search)
     - [Sorting Lists](#sorting-lists)
-    - [Paginating Lists](#paginating-lists)
-    - [Returning Pagination Metadata](#returning-pagination-metadata)
-
+    - [Pagination](#pagination)
+ 
 # JSON
 
 ### Sending JSON Responses
@@ -390,9 +389,27 @@ Adding DB Indexes
 
 ### Sorting Lists
 
+When working with PostgreSQL, its important to remember that the order of returned rows is only guaranteed by the rules that your `ORDER BY` clause imposes
+- This can be problematic when it comes to paginating rows with the same sort relevance (i.e. sorting two records with the same year)
+- Gurantee the order by including a primary key/unique constraint on the `ORDER BY` clause
 
+1. Implemented methods against our `Filters` struct: `sortColumn()` and `sortDirection()`
+2. Added string interpolation to our SQL query and dynamically added the filter conditions with `fmt.Sprintf`
+3. We also added a second constraint on our `ORDER BY` clause
+    - Added the `id ASC` to guarantee our records always remain the same order for pagination
 
-### Paginating Lists
+### Pagination
 
+- Utilize the `LIMIT` and `OFFSET` clauses along with some simple math to paginate
 
-### Returning Pagination Metadata
+```
+LIMIT = page_size
+OFFSET = (page - 1) * page_size
+```
+
+- We can utilize parameterized queries since numbers are not SQL keywords
+
+Pagination Metadata
+
+- Metadata such as current and last page numbers and total number of avaliable records can help give the client context about the response and make navigating through pages easier
+
