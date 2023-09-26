@@ -25,6 +25,11 @@
     - [Full-Text Search](#full-text-search)
     - [Sorting Lists](#sorting-lists)
     - [Pagination](#pagination)
+7. [Rate Limiting](#rate-limiting)
+    - [Global Rate Limting](#global-rate-limiting)
+    - [IP-based Rate Limiting](#ip-based-rate-limiting)
+    - [Configuring Rate-Limiters](#configuring-rate-limiters)
+8. [Graceful Shutdown](#graceful-shutdown)
  
 # JSON
 
@@ -400,7 +405,7 @@ When working with PostgreSQL, its important to remember that the order of return
 
 ### Pagination
 
-- Utilize the `LIMIT` and `OFFSET` clauses along with some simple math to paginate
+- Utilize the `LIMIT` and `OFFSET` clauses along with some simple math with query string params to paginate
 
 ```
 LIMIT = page_size
@@ -412,4 +417,81 @@ OFFSET = (page - 1) * page_size
 Pagination Metadata
 
 - Metadata such as current and last page numbers and total number of avaliable records can help give the client context about the response and make navigating through pages easier
+
+1. Use the `count(*) OVER()` expression in our SQL query to initiate a *window* function which counts the total number of *filtered* rows
+2. Created a `Metadata` struct to hold relevant metadata information
+3. Wrote the `calculateMetadata` function which returns an instance of the metadata struct with all the info calculated
+4. Modified `GetAll()` function to return our metdata information
+5. Returned an enveloped `metadata` JSON in our handler
+
+# Rate Limiting
+
+Rate limiting prevents clients from making *too many requests too quickly*, thus putting excessive strain on our servers
+
+- The *token-bucket* rate limiter
+    - We will have a bucket that starts with b tokens in it.
+    - Each time we receive a HTTP request, we will remove one token from the bucket.
+    - Every 1/r seconds, a token is added back to the bucket — up to a maximum of b total tokens.
+    - If we receive a HTTP request and the bucket is empty, then we should return a `429 Too Many Requests` response.
+
+### Global Rate Limiting
+
+1. Utilize the [`x/time/rate`](https://pkg.go.dev/golang.org/x/time/rate) package to implement a token-bucket rate limiter
+2. Initiate a `Limiter` instance via `NewLimiter()` function
+    ```
+    // Allow 2 requests per second, with a maximum of 4 requests in a burst. 
+    limiter := rate.NewLimiter(2, 4)
+    ```
+3. Construct a middleware function with the limiter in the lexical/closed-over scope
+    - In the return function check whether `limiter.Allowed()` allows the request to be processed, if not respond with status code `429` and exit the response
+    - Note: `limiter.Allow()` method is protected by mutexes making it concurrent safe
+4. Add the middleware to the middleware chain, putting it as earliest as possible to not make our server do unnecessary work
+5. Check our rate limiter is working via:
+    ```
+    $ for i in {1..6}; do curl http://localhost:4000/v1/healthcheck; done
+    ```
+
+### IP-based Rate Limiting
+
+In most cases, we would want to limit requests on a per client basis, so one bad actor making too many requests doesn't affect others.
+To acheive this, we can build an in-memory *map* of rate-limiters mapping a client's IP address to an instance of a Limiter
+
+Middleware Lexical Scope
+1. Define our `client` struct which will hold the limiter as well as a last seen time for each client
+2. Initialize our mutex and our clients map, mapping the client's IP address to an instance of our `client` struct
+3. Launch a background goroutine which removes old entries from the client's map once every minute
+    - Initiate an infinite loop and utilize the `time.Sleep` method to pause the goroutine every minute
+    - Before we run the logic to cleanup the limiters, we impose a mutex lock as to prevent any rate limiter checks from happening while the cleanup is taking place
+    - Iterate through the clients, if they haven't been seen within the last three minutes, delete their entry from the map
+    - Unlock the mutex
+
+Middleware Return Function
+1. Grab the client's IP address via `r.RemoteAddr`, can use the `net.SplitHostPort()` function from "net" package for convenience
+2. Impose a mutex lock before reading and writing to our `clients` map
+3. If the client IP doesn't exist in our map, create an instance of our `client` struct and map it to their IP
+4. Update the last seen time for the client
+5. Check the limiter's `Allow()` method and return a `429` if the rate-limit has been exceeded
+    - Also unlock the mutex if the rate-limit has been exceeded
+6. Unlock the mutex and call the next HTTP handler in the chain
+
+**Important**
+
+The IP-based rate-limiting approach only works if the API is running on a single machine. In distributed systems, where multiple instances of the applications are ran behind a load balancer, an alternative approach is needed.
+
+But if Nginx or HAProxy is used as the reverse proxy, they have built-in functionality for rate-limiting that is better suited for distributed systems.
+
+Another alternative is to use a fast database like Redis to hold a request count for clients which is hosted on a separate server and allow our application instances to communicate with the database.
+
+### Configuring Rate Limiters
+
+1. Add the `limiter` struct to our `config` struct
+    - `rps` - requests per second
+    - `burst` - max burst requests
+    - `enabled` - enable/disable the rate-limiter entirely
+2. Setup the CLI-flags with default values
+3. Only run our middleware if `limiter-enabled` returns `true`
+4. Wrap `app.config.limiter.rps` in a `rate.Limit` type to parse correctly
+    - `rate.Limit` is just a alias for a `float64`
+
+# Graceful Shutdown
 
