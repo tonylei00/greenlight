@@ -495,3 +495,23 @@ Another alternative is to use a fast database like Redis to hold a request count
 
 # Graceful Shutdown
 
+Graceful shutdowns allow our application to process in-flight requests before shutting down
+
+Terminating in-flight requests isn't ideal for two reasons:
+1. Clients won't receive responses to in-flight requests, they will just see a hard closure on the HTTP connection
+2. Any work being carried out by our handlers may be left in an incomplete state
+
+Graceful Shutdown Procedure:
+1. Import and utilize packages `os`, `os/signal`, and `syscall` from Go's standard library
+2. Launch a background goroutine which runs for the lifetime of our application
+    - This goroutine will be responsible for intercepting signals via `signal.Notify()` method and relay them to a channel for furthur processing
+3. In the goroutine, we initialize/make a *buffered* channel of type `os.Signal` and buffer length of **1**
+    - We utilize a *bufferred* channel to avoid our signal being lost due to the receiving channel not being ready to receive the signal
+4. Call `signal.Notify()` with the receiving channel as well as the types of signals we want to intercept
+    - i.e. `signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)` will intercept SIGINT and SIGTERM signals and send them to the bufferred `quit` channel
+5. Read the signal from the receiving channel
+    ```
+        // This code is blocked until our bufferred channel is full
+        s := <-ch
+    ```
+6. 
