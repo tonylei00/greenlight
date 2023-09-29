@@ -4,9 +4,11 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"greenlight.tlei.net/internal/data"
+	"greenlight.tlei.net/internal/mailer"
 
 	_ "github.com/lib/pq"
 )
@@ -27,12 +29,21 @@ type config struct {
 		burst   int
 		enabled bool
 	}
+	stmp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config config
 	logger *slog.Logger
 	models data.Models
+	mailer mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
@@ -49,6 +60,12 @@ func main() {
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable/disable rate limiter")
+
+	flag.StringVar(&cfg.stmp.host, "stmp-host", os.Getenv("STMP_HOST"), "STMP Host")
+	flag.IntVar(&cfg.stmp.port, "stmp-port", 25, "STMP Port")
+	flag.StringVar(&cfg.stmp.username, "stmp-username", os.Getenv("STMP_USERNAME"), "STMP Username")
+	flag.StringVar(&cfg.stmp.password, "stmp-password", os.Getenv("STMP_PASSWORD"), "STMP Password")
+	flag.StringVar(&cfg.stmp.sender, "stmp-sender", "Greenlight <no-reply@greenlight.tlei.net>", "STMP Sender")
 
 	flag.Parse()
 
@@ -68,6 +85,9 @@ func main() {
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		mailer: mailer.New(
+			cfg.stmp.host, cfg.stmp.port, cfg.stmp.username, cfg.stmp.password, cfg.stmp.sender,
+		),
 	}
 
 	err = app.serve()
