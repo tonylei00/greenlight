@@ -147,9 +147,9 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 	return i
 }
 
-// Wrapper function for to execute a goroutine for any given function with any panics automatically recovered
 func (app *application) background(fn func()) {
 	app.wg.Add(1)
+
 	go func() {
 		defer app.wg.Done()
 
