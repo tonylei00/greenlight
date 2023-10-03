@@ -69,6 +69,7 @@ func (m TokenModel) Insert(t *Token) error {
 	query := `
 			INSERT INTO tokens (hash, user_id, expiry, scope)
 			VALUES ($1, $2, $3, $4)`
+
 	args := []any{t.Hash, t.UserID, t.Expiry, t.Scope}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -81,7 +82,7 @@ func (m TokenModel) Insert(t *Token) error {
 func (m TokenModel) DeleteAllForUser(userID int64, scope string) error {
 	query := `
 			DELETE FROM tokens
-			WHERE user_id = $1, scope = $2`
+			WHERE user_id = $1 AND scope = $2`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
