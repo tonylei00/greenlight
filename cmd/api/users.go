@@ -28,6 +28,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		Activated: false,
 	}
 
+	// Sets the plain text + hashed password on the new user's Password struct
 	err = user.Password.Set(input.Password)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -53,12 +54,21 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Grant new users read permission
+	err = app.models.Permissions.AddForUser(user.ID, "movies:read")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Assign the user an activation token which expires in 3 days
 	token, err := app.models.Tokens.New(user.ID, 3*24*time.Hour, data.ScopeActivation)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
+	// Spin up a background goroutine to send the user a welcome email with the activation token
 	app.background(func() {
 		tmplData := map[string]any{
 			"activationToken": token.Plaintext,
