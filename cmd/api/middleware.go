@@ -31,6 +31,36 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
+func (app *application) enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Vary", "Origin")
+		w.Header().Add("Vary", "Access-Control-Request-Method")
+
+		origin := r.Header.Get("Origin")
+
+		if origin != "" {
+			for _, v := range app.config.cors.trustedOrigins {
+				if v == origin {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+
+					// Handle preflight request
+					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+						w.Header().Add("Access-Control-Allow-Method", "OPTIONS, PUT, PATCH, DELETE")
+						w.Header().Add("Access-Control-Allow-Headers", "Authorization, Content-Type")
+
+						w.WriteHeader(http.StatusOK)
+						return
+					}
+
+					break
+				}
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // IP rate-limit to 2 requests per second with a max burst of 4 requests
 func (app *application) rateLimit(next http.Handler) http.Handler {
 	type client struct {
