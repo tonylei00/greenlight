@@ -43,9 +43,10 @@ func (app *application) writeJSON(
 	return nil
 }
 
+const ONE_MB = 1_048_576
+
 func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
-	// Limit request body to 1MB
-	maxBytes := 1_048_576
+	maxBytes := ONE_MB
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
 	decoder := json.NewDecoder(r.Body)
