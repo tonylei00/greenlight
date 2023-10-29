@@ -46,6 +46,9 @@ type config struct {
 	cors struct {
 		trustedOrigins []string
 	}
+	jwt struct {
+		secret string
+	}
 }
 
 type application struct {
@@ -62,6 +65,7 @@ func main() {
 	flag.IntVar(&cfg.port, "port", 4000, "API Server Port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
+	flag.StringVar(&cfg.jwt.secret, "jwt-secret", "", "JWT Secret")
 
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
